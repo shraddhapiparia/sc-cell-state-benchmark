@@ -1,0 +1,15 @@
+name: sc-cell-state-benchmark
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - scanpy
+  - anndata
+  - pandas
+  - numpy
+  - scipy
+  - scikit-learn
+  - matplotlib
+  - seaborn
+  - jupyter
+  - pytest
