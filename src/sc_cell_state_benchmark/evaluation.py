@@ -5,18 +5,6 @@ from scipy.stats import mannwhitneyu
 from sklearn.metrics import roc_auc_score
 
 
-def compare_scores(scores1, scores2):
-    """Compare two scoring methods."""
-    # TODO: Implement comparison metrics
-    pass
-
-
-def robustness_test(adata, perturbations):
-    """Test score robustness under perturbations."""
-    # TODO: Implement
-    pass
-
-
 def compute_binary_comparison(scores, labels, positive_label):
     """Compute simple benchmark metrics for a binary comparison."""
     labels = np.asarray(labels)

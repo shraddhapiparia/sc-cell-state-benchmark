@@ -41,12 +41,17 @@ Thumbs.db
 # Project data
 data/raw/*
 data/processed/*
+data/*.h5ad
 !data/raw/.gitkeep
 !data/processed/.gitkeep
 
-# Results
+# Results (generated outputs — regenerate by running scripts)
 results/tables/*
 results/metrics/*
 !results/tables/.gitkeep
 !results/metrics/.gitkeep
+
+# Figures (generated outputs — regenerate by running scripts)
+# results/project_summary.md is committed as a human-authored summary
+figures/*.png
 !figures/.gitkeep

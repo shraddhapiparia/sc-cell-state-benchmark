@@ -81,7 +81,7 @@ if __name__ == '__main__':
     score_table.to_csv(score_path, index=False)
 
     grouping = 'predicted_cell_type' if 'predicted_cell_type' in adata.obs.columns else 'leiden'
-    summary = adata.obs.groupby(grouping)[['ifn_scanpy', 'ifn_meanexpr', 'ifn_rank']].agg(['mean', 'median', 'std'])
+    summary = adata.obs.groupby(grouping, observed=True)[['ifn_scanpy', 'ifn_meanexpr', 'ifn_rank']].agg(['mean', 'median', 'std'])
     summary_df = flatten_summary(summary)
     summary_path = RESULTS_TABLES / 'interferon_summary_by_cell_type.csv'
     summary_df.to_csv(summary_path, index=False)
