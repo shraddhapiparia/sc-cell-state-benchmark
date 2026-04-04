@@ -47,7 +47,6 @@ data/processed/*
 # Results
 results/tables/*
 results/metrics/*
-figures/*
 !results/tables/.gitkeep
 !results/metrics/.gitkeep
 !figures/.gitkeep
