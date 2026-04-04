@@ -28,16 +28,32 @@ of the repository.
 
 ---
 
-## v1.1 — Robustness and cleanup (next)
+## v1.1 — Biological program scoring + exploratory CCC (added on feature branch)
+
+**Status: complete (feature/cell-communication)**
+
+- [x] Five curated immune program scores: IFN-α/β, inflammatory, antigen presentation,
+      cytotoxic/NK, monocyte activation (script 10)
+- [x] Program AUROC ranking and per-cell-type × condition summary tables
+- [x] Delta and side-by-side heatmaps for program scores
+- [x] 16-pair LR panel with mean-product scoring per condition (script 11)
+- [x] Sender × receiver heatmaps (delta and side-by-side)
+- [x] Arc-network figure of increased communication in stim condition
+- [x] `gene_sets.py` and `communication.py` modules; three new plotting functions
+- [x] `results/program_scoring_summary.md` and `results/communication_summary.md`
+
+---
+
+## v1.2 — Robustness and cleanup (next)
 
 **Status: not started**
 
-### Immediate technical debt
-- [ ] Fix `groupby` in `scripts/06_score_cell_states.py` to use `observed=True`
-- [ ] Resolve `controls.py` — either remove the superseded stubs or promote them
-- [ ] Remove the unimplemented TODO stubs from `evaluation.py` or implement them
-- [ ] Clarify the `data/kang.h5ad` file at the root data level (outside `raw/processed/` structure)
-- [ ] Update `.gitignore` to explicitly exclude figure PNGs if they should not be committed
+### Immediate technical debt (most items completed in cleanup commit 344a1e7)
+- [x] Fix `groupby observed=True` in script 06
+- [x] Resolve `controls.py` stubs
+- [x] Remove unimplemented TODO stubs from `evaluation.py`
+- [x] Remove stray data files from git tracking
+- [x] Update `.gitignore` for figure PNGs and data files
 
 ### Robustness tests (planned, not implemented)
 - [ ] Permuted-label negative control (label permutation as a second null)
