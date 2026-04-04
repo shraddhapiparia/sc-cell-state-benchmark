@@ -12,4 +12,4 @@ dependencies:
   - matplotlib
   - seaborn
   - jupyter
-  - pytest
+  - pytest  - python-igraph

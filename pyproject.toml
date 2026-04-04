@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sc-cell-state-benchmark"
+version = "0.1.0"
+description = "Benchmarking cell-state scoring methods in single-cell RNA-seq"
+authors = [
+    {name = "Your Name", email = "your.email@example.com"},
+]
+dependencies = [
+    "scanpy",
+    "anndata",
+    "pandas",
+    "numpy",
+    "scipy",
+    "scikit-learn",
+    "matplotlib",
+    "seaborn",
+    "jupyter",
+    "pytest",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
