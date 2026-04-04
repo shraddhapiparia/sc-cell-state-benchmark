@@ -51,12 +51,12 @@ into the benchmark pipeline. Both should eventually be run.
 
 ### `controls.py` vs `scoring.py`
 
-The `controls.py` module contains two early stubs (`random_gene_set`, `permute_labels`)
-from the initial scaffold. `random_gene_set` has been superseded by the more complete
+The `controls.py` module contained two early stubs (`random_gene_set`, `permute_labels`)
+from the initial scaffold. `random_gene_set` was superseded by the more complete
 `matched_random_gene_sets` in `scoring.py`, which uses a seeded RNG, respects `adata.raw`,
-and returns multiple sets. `controls.py` has not been removed to preserve the original
-scaffold, but its contents should be either promoted to the main pipeline or removed
-before a v1.1 release.
+and returns multiple sets. Both stubs have been removed; `controls.py` is now an
+intentionally empty module with a comment explaining the history. `permute_labels` is
+noted in `docs/NEXT_STEPS.md` as a future addition.
 
 ---
 
@@ -100,8 +100,7 @@ specifying `observed`. The `observed=True` argument requests only groups that ac
 appear in the data (as opposed to all levels of the categorical). This is the correct
 behavior here and will become the default in a future pandas version.
 
-Note: script `06_score_cell_states.py` still uses `groupby` without `observed=True`
-and should be updated.
+`observed=True` is applied consistently across all scripts (06 and 09).
 
 ---
 

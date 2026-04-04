@@ -1,8 +1,12 @@
 """Plotting functions."""
 
 from pathlib import Path
+from typing import List
 
+import matplotlib.patches as mpatches
+import matplotlib.patheffects as pe
 import matplotlib.pyplot as plt
+import numpy as np
 import scanpy as sc
 import seaborn as sns
 
@@ -77,8 +81,7 @@ def plot_score_by_cell_type_and_condition(
 ) -> None:
     """Violin plot of a score stratified by cell type and condition (ctrl vs stim)."""
     plot_df = scores_df[[cell_type_col, condition_col, score_field]].dropna()
-    # Order cell types by median stimulated score descending
-    stim_label = plot_df[condition_col].unique()
+    # Order cell types by median score descending
     order = (
         plot_df.groupby(cell_type_col, observed=True)[score_field]
         .median()
@@ -238,6 +241,245 @@ def plot_program_auc_barplot(auc_df, save_path: Path, title: str = 'Program sepa
             )
 
     ax.legend(loc='lower right', fontsize=9)
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=150, bbox_inches='tight')
+    plt.close()
+
+
+def plot_communication_heatmap_sidebyside(
+    ctrl_matrix,
+    stim_matrix,
+    save_path: Path,
+    ctrl_label: str = 'Control',
+    stim_label: str = 'Stimulated',
+    title: str = 'Cell-cell communication scores by condition (summed LR mean-product)',
+) -> None:
+    """Option A (supporting): side-by-side heatmaps of summed LR scores per condition.
+
+    Rows = sender cell types; columns = receiver cell types. Each cell is the sum
+    of mean-product LR scores across all curated pairs for that sender→receiver
+    combination. Each panel uses its own colour scale so within-condition structure
+    is visible independently.
+
+    Parameters
+    ----------
+    ctrl_matrix, stim_matrix : DataFrame, shape (n_cell_types, n_cell_types)
+        Sender × receiver summed LR score matrices, one per condition.
+    """
+    n_ct = ctrl_matrix.shape[0]
+    fig_panel_w = max(6.0, n_ct * 0.85 + 2.0)
+    fig_h = max(5.0, n_ct * 0.75 + 2.5)
+    fig, axes = plt.subplots(1, 2, figsize=(fig_panel_w * 2 + 1.0, fig_h))
+
+    for ax, df, label in zip(axes, [ctrl_matrix, stim_matrix], [ctrl_label, stim_label]):
+        vmin = float(df.min().min())
+        vmax = float(df.max().max())
+        if vmax <= vmin:
+            vmax = vmin + 0.01
+        sns.heatmap(
+            df,
+            ax=ax,
+            cmap='YlOrRd',
+            vmin=vmin,
+            vmax=vmax,
+            annot=True,
+            fmt='.2f',
+            linewidths=0.4,
+            linecolor='#dddddd',
+            cbar_kws={'label': 'Summed LR score', 'shrink': 0.8},
+        )
+        ax.set_title(label, fontsize=12)
+        ax.set_xlabel('Receiver cell type')
+        ax.set_ylabel('Sender cell type')
+        plt.setp(ax.get_xticklabels(), rotation=45, ha='right', fontsize=8)
+        plt.setp(ax.get_yticklabels(), rotation=0, fontsize=8)
+
+    fig.suptitle(title, y=1.01, fontsize=11)
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=150, bbox_inches='tight')
+    plt.close()
+
+
+def plot_communication_heatmap_delta(
+    delta_matrix,
+    save_path: Path,
+    title: str = 'Cell-cell communication change: stimulated \u2212 control (summed LR score)',
+) -> None:
+    """Option B (primary): diverging heatmap of summed LR score change (stim \u2212 ctrl).
+
+    Rows = sender cell types; columns = receiver cell types. Positive values (red)
+    indicate increased communication potential in the stimulated condition;
+    negative values (blue) indicate decreased potential.
+
+    Parameters
+    ----------
+    delta_matrix : DataFrame, shape (n_cell_types, n_cell_types)
+        stim_matrix \u2212 ctrl_matrix.
+    """
+    n_ct = delta_matrix.shape[0]
+    fig_w = max(7.0, n_ct * 0.9 + 2.5)
+    fig_h = max(5.0, n_ct * 0.8 + 2.5)
+    fig, ax = plt.subplots(figsize=(fig_w, fig_h))
+
+    abs_max = float(delta_matrix.abs().max().max())
+    if abs_max == 0:
+        abs_max = 0.01
+
+    sns.heatmap(
+        delta_matrix,
+        ax=ax,
+        cmap='RdBu_r',
+        center=0,
+        vmin=-abs_max,
+        vmax=abs_max,
+        annot=True,
+        fmt='.2f',
+        linewidths=0.4,
+        linecolor='#dddddd',
+        cbar_kws={'label': 'stim \u2212 ctrl (summed LR score)', 'shrink': 0.8},
+    )
+    ax.set_title(title, fontsize=11)
+    ax.set_xlabel('Receiver cell type')
+    ax.set_ylabel('Sender cell type')
+    plt.setp(ax.get_xticklabels(), rotation=45, ha='right', fontsize=8)
+    plt.setp(ax.get_yticklabels(), rotation=0, fontsize=8)
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=150, bbox_inches='tight')
+    plt.close()
+
+
+def plot_communication_network(
+    delta_matrix,
+    save_path: Path,
+    top_n: int = 14,
+    title: str = 'Increased cell-cell communication: stimulated vs control',
+) -> None:
+    """Circular arc-network diagram of communication changes (stim \u2212 ctrl).
+
+    Nodes represent cell types, positioned on a circle. Directed arcs go from
+    sender to receiver. Only arcs with a positive delta (increased communication
+    under stimulation) are drawn. Arc width and opacity are proportional to the
+    delta magnitude. The top_n arcs by delta are shown.
+
+    No external dependencies beyond matplotlib and numpy.
+
+    Parameters
+    ----------
+    delta_matrix : DataFrame, shape (n_cell_types, n_cell_types)
+        stim \u2212 ctrl summed LR score per sender × receiver.
+    top_n : int
+        Maximum number of arcs to draw.
+    """
+    cell_types: List[str] = list(delta_matrix.index)
+    n = len(cell_types)
+
+    # Short labels for readability inside the figure
+    short: dict = {}
+    for ct in cell_types:
+        parts = ct.split()
+        if len(parts) == 1:
+            short[ct] = ct
+        elif parts[0].startswith('CD') or parts[0].startswith('FCGR') or parts[0].startswith('NK'):
+            short[ct] = parts[0]
+        else:
+            short[ct] = ' '.join(p[0] for p in parts)  # initials fallback
+    # Override ambiguous initials
+    short['CD14+ Monocytes'] = 'CD14+ Mono'
+    short['FCGR3A+ Monocytes'] = 'FCGR3A+ Mono'
+    short['Dendritic cells'] = 'DC'
+    short['Megakaryocytes'] = 'Mega'
+
+    # Node positions on unit circle (start from top, clockwise)
+    angles = np.linspace(np.pi / 2, np.pi / 2 - 2 * np.pi, n, endpoint=False)
+    pos = {ct: np.array([np.cos(a), np.sin(a)]) for ct, a in zip(cell_types, angles)}
+
+    # Palette for nodes — consistent with seaborn tab10
+    palette = plt.cm.tab10(np.linspace(0, 1, n))
+    node_color = {ct: palette[i] for i, ct in enumerate(cell_types)}
+
+    # Collect positive-delta sender→receiver pairs, sorted descending
+    edges = []
+    for sender in cell_types:
+        for receiver in cell_types:
+            if sender == receiver:
+                continue
+            val = float(delta_matrix.loc[sender, receiver])
+            if val > 0:
+                edges.append((sender, receiver, val))
+    edges.sort(key=lambda x: x[2], reverse=True)
+    edges = edges[:top_n]
+
+    if not edges:
+        # Nothing to draw — save blank figure with message
+        fig, ax = plt.subplots(figsize=(8, 8))
+        ax.text(0.5, 0.5, 'No positive-delta interactions to display.',
+                ha='center', va='center', transform=ax.transAxes)
+        ax.axis('off')
+        plt.savefig(save_path, dpi=150, bbox_inches='tight')
+        plt.close()
+        return
+
+    max_delta = edges[0][2]
+
+    fig, ax = plt.subplots(figsize=(9, 9))
+    ax.set_aspect('equal')
+    ax.set_xlim(-1.75, 1.75)
+    ax.set_ylim(-1.75, 1.75)
+    ax.axis('off')
+
+    # Draw arcs using FancyArrowPatch with arc3 connectionstyle
+    # Alternate arc curvature sign so overlapping pairs are distinguishable
+    for i, (sender, receiver, delta_val) in enumerate(edges):
+        norm = delta_val / max_delta           # 0–1
+        lw = 0.8 + norm * 5.5
+        alpha = 0.35 + norm * 0.55
+        rad = 0.28 if i % 2 == 0 else -0.28   # alternate curvature
+        color = plt.cm.YlOrRd(0.3 + norm * 0.65)
+
+        arrow = mpatches.FancyArrowPatch(
+            posA=tuple(pos[sender] * 0.88),
+            posB=tuple(pos[receiver] * 0.88),
+            arrowstyle=mpatches.ArrowStyle('->', head_length=8, head_width=5),
+            connectionstyle=f'arc3,rad={rad}',
+            linewidth=lw,
+            color=color,
+            alpha=alpha,
+            zorder=2,
+        )
+        ax.add_patch(arrow)
+
+    # Draw nodes on top of arcs
+    node_r = 0.13
+    for ct in cell_types:
+        x, y = pos[ct]
+        circle = plt.Circle((x, y), node_r, color=node_color[ct],
+                             zorder=4, linewidth=1.5, ec='white')
+        ax.add_patch(circle)
+
+    # Labels just outside the node ring
+    label_r = 1.32
+    for ct in cell_types:
+        x, y = pos[ct]
+        ang = np.arctan2(y, x)
+        lx, ly = label_r * np.cos(ang), label_r * np.sin(ang)
+        ha = 'left' if np.cos(ang) >= 0 else 'right'
+        ax.text(lx, ly, short[ct], ha=ha, va='center', fontsize=9,
+                path_effects=[pe.withStroke(linewidth=2, foreground='white')])
+
+    # Colour-scale legend (proxy patches)
+    legend_handles = [
+        mpatches.Patch(color=plt.cm.YlOrRd(0.95), label=f'High delta (~{max_delta:.1f})'),
+        mpatches.Patch(color=plt.cm.YlOrRd(0.50), label='Medium delta'),
+        mpatches.Patch(color=plt.cm.YlOrRd(0.30), label='Low delta'),
+    ]
+    ax.legend(handles=legend_handles, loc='lower right', fontsize=8,
+              title='Summed LR\nscore increase', title_fontsize=8, framealpha=0.85)
+
+    ax.set_title(title, fontsize=11, pad=14)
+    fig.text(0.5, 0.01,
+             f'Top {len(edges)} sender\u2192receiver pairs by stim\u2212ctrl delta. '
+             'Arc width \u221d magnitude.',
+             ha='center', fontsize=7.5, color='#555555')
     plt.tight_layout()
     plt.savefig(save_path, dpi=150, bbox_inches='tight')
     plt.close()
