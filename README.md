@@ -1,11 +1,13 @@
 # sc-cell-state-benchmark
 
-Benchmarking cell-state scoring methods in single-cell RNA-seq, with layered
+Benchmarking RNA-based cell-state scoring methods in single-cell RNA-seq, with layered
 biological interpretation using a paired interferon-stimulation PBMC dataset.
 
 ---
 
 ## What this repo demonstrates
+
+This repository focuses on RNA-only benchmarking and interpretation; paired RNA+ATAC integration, TF/regulon inference, and dynamic regulatory analysis are reserved for a follow-up multiome repository.
 
 - End-to-end single-cell RNA-seq preprocessing, clustering, and annotation
 - Head-to-head comparison of three gene-set scoring methods on a perturbation dataset
@@ -20,23 +22,23 @@ biological interpretation using a paired interferon-stimulation PBMC dataset.
 
 The project is structured as four layers, each building on the previous:
 
-**Layer 1 — Preprocessing and annotation (PBMC3k warm-up, scripts 01–06)**
+**Layer 1 — RNA-only preprocessing and annotation (PBMC3k warm-up, scripts 01–06)**
 Standard 10x PBMC dataset used to validate the preprocessing pipeline. Normalisation,
 HVG selection, UMAP, Leiden clustering, marker gene identification, and cluster
 annotation. No perturbation signal — used as a dry run.
 
-**Layer 2 — Scoring method benchmark (Kang interferon PBMC, scripts 07–09)**
+**Layer 2 — RNA-only scoring method benchmark (Kang interferon PBMC, scripts 07–09)**
 A paired ctrl/stim dataset where PBMCs were stimulated with interferon-beta. Three
 gene-set scoring methods are compared: can each one separate stimulated from control
 cells using a 10-gene interferon signature? 25 matched random gene sets are used as
 null controls.
 
-**Layer 3 — Biological program interpretation (script 10)**
+**Layer 3 — RNA-only biological program interpretation (script 10)**
 Five curated immune programs scored across all cells, producing a cell-type × condition
 score matrix. Shifts from "which method works?" to "which biological programs change
 and in which cell types?"
 
-**Layer 4 — Exploratory cell-cell communication (script 11)**
+**Layer 4 — Optional exploratory cell-cell communication (script 11)**
 16 curated ligand-receptor pairs scored using mean-product expression (mean ligand
 expression in sender cells × mean receptor expression in receiver cells) per condition.
 **This is an exploratory layer only** — scores reflect co-expression, not validated
@@ -72,7 +74,7 @@ intercellular signalling.
 - Program scoring shows the IFN-α/β response (AUC 0.991) and inflammatory response
   (AUC 0.655) as perturbation-driven; antigen presentation, cytotoxic, and monocyte
   activation programs primarily reflect cell-type identity in this dataset.
-- Communication scoring identifies monocytes and DCs as dominant senders of increased
+- Exploratory communication scoring suggests monocytes and DCs as dominant senders of increased
   signal under stimulation, driven by ISG-induced CXCL10 expression.
 
 ---
@@ -262,6 +264,20 @@ python scripts/11_cell_communication.py \
 - MSigDB or GO gene set loader
 - Richer communication statistics with permutation-based significance testing
 - Trajectory/pseudotime analysis for continuous cell-state transitions
+
+## Future extensions
+Within this repo:
+- additional RNA scoring methods
+- permutation nulls
+- subsampling robustness
+- extra perturbation datasets
+- gene-set loaders
+
+Planned follow-up repository:
+- paired RNA+ATAC integration
+- WNN-based multimodal analysis
+- TF / regulon inference
+- dynamic regulatory modeling and pseudotime
 
 See [docs/ROADMAP.md](docs/ROADMAP.md) and [docs/NEXT_STEPS.md](docs/NEXT_STEPS.md) for details.
 
