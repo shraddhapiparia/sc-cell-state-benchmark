@@ -97,6 +97,102 @@ def plot_umap_annotation(adata, save_path: Path) -> None:
     plt.close()
 
 
+def plot_umap_categorical(adata, color: str, save_path: Path, title: str = None) -> None:
+    """Plot UMAP colored by any categorical obs column."""
+    fig, ax = plt.subplots(figsize=(7, 5))
+    sc.pl.umap(
+        adata,
+        color=color,
+        ax=ax,
+        show=False,
+        title=title or color,
+    )
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=150, bbox_inches='tight')
+    plt.close()
+
+
+def plot_marker_heatmap(
+    adata,
+    genes: List[str],
+    groupby: str,
+    save_path: Path,
+    title: str = 'Marker gene expression by cell type',
+) -> None:
+    """Heatmap of mean log-normalised expression for canonical marker genes.
+
+    Uses adata.raw when available so genes not in the HVG subset are still
+    accessible.  Values are z-scored per gene (column-wise) so that differences
+    across cell types are visible regardless of absolute expression level.
+
+    Parameters
+    ----------
+    adata : AnnData
+    genes : list of str
+        Genes to show as columns.  Genes absent from the dataset are silently
+        dropped with a printed warning.
+    groupby : str
+        obs column to group rows by (e.g. 'predicted_cell_type').
+    save_path : Path
+    title : str
+    """
+    import pandas as pd
+
+    matrix = adata.raw if adata.raw is not None else adata
+    var_names = list(matrix.var_names)
+
+    present = [g for g in genes if g in var_names]
+    missing = [g for g in genes if g not in var_names]
+    if missing:
+        print(f'[plot_marker_heatmap] genes not found, skipped: {missing}')
+    if not present:
+        print('[plot_marker_heatmap] no genes found -- skipping figure')
+        return
+
+    import scipy.sparse as sp
+
+    X = matrix[:, present].X
+    if sp.issparse(X):
+        X = X.toarray()
+    X = np.asarray(X, dtype=float)
+
+    groups = adata.obs[groupby].astype(str)
+    unique_groups = sorted(groups.unique())
+
+    mean_expr = np.zeros((len(unique_groups), len(present)))
+    for i, grp in enumerate(unique_groups):
+        mask = groups == grp
+        mean_expr[i] = X[mask].mean(axis=0)
+
+    df = pd.DataFrame(mean_expr, index=unique_groups, columns=present)
+
+    # z-score per gene so scale differences do not dominate
+    col_std = df.std(axis=0).replace(0, 1)
+    df_z = (df - df.mean(axis=0)) / col_std
+
+    fig_w = max(6, len(present) * 0.75 + 2.0)
+    fig_h = max(3, len(unique_groups) * 0.55 + 1.5)
+    fig, ax = plt.subplots(figsize=(fig_w, fig_h))
+    sns.heatmap(
+        df_z,
+        ax=ax,
+        cmap='RdBu_r',
+        center=0,
+        annot=True,
+        fmt='.1f',
+        linewidths=0.4,
+        linecolor='#dddddd',
+        cbar_kws={'label': 'z-scored mean log-expr', 'shrink': 0.7},
+    )
+    ax.set_title(title)
+    ax.set_xlabel('Gene')
+    ax.set_ylabel('Cell type')
+    plt.xticks(rotation=45, ha='right')
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=150, bbox_inches='tight')
+    plt.close()
+
+
 def plot_umap_score(adata, score_field: str, save_path: Path, title: str) -> None:
     """Plot UMAP colored by a continuous score field."""
     fig, ax = plt.subplots(figsize=(6, 5))

@@ -5,16 +5,25 @@ import pandas as pd
 from pathlib import Path
 from sc_cell_state_benchmark.config import RESULTS_TABLES, FIGURES, PBMC3K_PREPROCESSED, DATA_PROCESSED, PBMC3K_ANNOTATED
 from sc_cell_state_benchmark.data import load_anndata, ensure_dirs, save_anndata
-from sc_cell_state_benchmark.plotting import plot_umap_annotation
+from sc_cell_state_benchmark.plotting import plot_marker_heatmap, plot_umap_annotation
 
+# T cells are split into CD4 and CD8 subsets.
+# CD3D is the shared T-cell anchor; IL7R enriches for CD4, CD8A/NKG7 for CD8.
+# MALAT1 removed -- it is a broadly expressed lncRNA with no T-cell specificity.
 CELL_TYPE_RULES = {
-    'T cell': {'CD3D', 'CD3E', 'IL7R', 'LTB', 'MALAT1'},
-    'B cell': {'MS4A1', 'CD79A', 'CD74', 'HLA-DRA'},
-    'NK cell': {'NKG7', 'GNLY', 'KLRD1'},
-    'Monocyte': {'LYZ', 'CST3', 'FCN1', 'S100A8', 'FCGR3A'},
+    'CD4 T cell': {'CD3D', 'IL7R', 'CD4', 'LTB'},
+    'CD8 T cell': {'CD3D', 'CD8A', 'NKG7', 'CST7'},
+    'B cell':     {'MS4A1', 'CD79A', 'CD74', 'HLA-DRA'},
+    'NK cell':    {'NKG7', 'GNLY', 'KLRD1'},
+    'Monocyte':   {'LYZ', 'CST3', 'FCN1', 'S100A8', 'FCGR3A'},
     'Dendritic cell': {'FCER1A', 'CST3', 'HLA-DRA'},
-    'Platelet': {'PPBP', 'PF4'},
+    'Platelet':   {'PPBP', 'PF4'},
 }
+
+MARKER_GENES = [
+    'CD3D', 'IL7R', 'CD4', 'CD8A',
+    'NKG7', 'MS4A1', 'LST1', 'FCGR3A', 'HLA-DRA',
+]
 
 
 def predict_cell_type(marker_genes):
@@ -78,6 +87,16 @@ if __name__ == '__main__':
 
     annotated_path = FIGURES / 'pbmc3k_umap_annotated.png'
     plot_umap_annotation(adata, annotated_path)
+
+    marker_path = FIGURES / 'pbmc3k_marker_heatmap.png'
+    plot_marker_heatmap(
+        adata,
+        MARKER_GENES,
+        groupby='predicted_cell_type',
+        save_path=marker_path,
+        title='Canonical marker expression by predicted cell type (PBMC3k)',
+    )
+    print(f"[annotate] saved marker heatmap to {marker_path}")
 
     n_clusters = len(annotations)
     print(f"[annotate] assigned likely cell types to {n_clusters} clusters")

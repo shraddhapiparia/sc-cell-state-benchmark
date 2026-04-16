@@ -39,7 +39,7 @@ from sc_cell_state_benchmark.config import (
     RANDOM_SEED,
 )
 from sc_cell_state_benchmark.data import ensure_dirs, load_anndata, save_anndata
-from sc_cell_state_benchmark.plotting import plot_qc_violin
+from sc_cell_state_benchmark.plotting import plot_qc_violin, plot_umap_categorical
 
 # QC filter threshold -- inspect kang_qc_violin_prefilter.png before changing
 MAX_GENES: int = 2500
@@ -196,3 +196,25 @@ if __name__ == "__main__":
         f"[preprocess] {raw_path.name} -> {args.output.name} | "
         f"cells={adata.n_obs} genes={adata.n_vars} hvg={n_hvg} clusters={n_clusters}"
     )
+
+    # UMAP coloured by condition (label) and by donor (replicate).
+    # These figures are useful for visually checking whether the embedding
+    # separates cell types (expected) or is dominated by condition/donor
+    # effects (would suggest batch correction is needed).
+    if "label" in adata.obs.columns:
+        plot_umap_categorical(
+            adata,
+            color="label",
+            save_path=FIGURES / "kang_umap_by_condition.png",
+            title="Kang PBMC -- UMAP by condition (ctrl / stim)",
+        )
+        print("[preprocess] saved kang_umap_by_condition.png")
+
+    if "replicate" in adata.obs.columns:
+        plot_umap_categorical(
+            adata,
+            color="replicate",
+            save_path=FIGURES / "kang_umap_by_replicate.png",
+            title="Kang PBMC -- UMAP by donor (replicate)",
+        )
+        print("[preprocess] saved kang_umap_by_replicate.png")
