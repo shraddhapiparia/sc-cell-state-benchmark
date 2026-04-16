@@ -632,6 +632,120 @@ def plot_communication_network(
     plt.close()
 
 
+def plot_de_summary(de_df, save_path: Path, top_n: int = 5,
+                    title: str = 'Top DE genes per cell type (stim vs ctrl)') -> None:
+    """Heatmap of log-fold-changes for the top DE genes per cell type.
+
+    Rows = union of top_n genes per cell type (ranked by Wilcoxon score).
+    Columns = cell types.
+    Color = logfoldchange (blue = down, red = up).
+    Grey cells indicate the gene was not in the top list for that cell type.
+
+    Parameters
+    ----------
+    de_df : DataFrame
+        Combined DE table with columns: cell_type, names, scores, logfoldchanges.
+    save_path : Path
+    top_n : int
+        Number of top genes to select per cell type.
+    """
+    import pandas as pd
+
+    cell_types = de_df['cell_type'].unique()
+    gene_order = []
+    for ct in sorted(cell_types):
+        top = (
+            de_df[de_df['cell_type'] == ct]
+            .nlargest(top_n, 'scores')['names']
+            .tolist()
+        )
+        for g in top:
+            if g not in gene_order:
+                gene_order.append(g)
+
+    pivot = de_df.pivot_table(
+        index='names', columns='cell_type', values='logfoldchanges', aggfunc='first'
+    )
+    pivot = pivot.reindex(index=gene_order)
+
+    abs_max = float(pivot.abs().max().max())
+    if abs_max == 0:
+        abs_max = 1.0
+
+    fig_w = max(8, len(cell_types) * 1.1 + 2.5)
+    fig_h = max(4, len(gene_order) * 0.38 + 1.5)
+    fig, ax = plt.subplots(figsize=(fig_w, fig_h))
+    sns.heatmap(
+        pivot,
+        ax=ax,
+        cmap='RdBu_r',
+        center=0,
+        vmin=-abs_max,
+        vmax=abs_max,
+        linewidths=0.3,
+        linecolor='#dddddd',
+        cbar_kws={'label': 'log2 fold-change (stim / ctrl)', 'shrink': 0.7},
+    )
+    ax.set_title(title)
+    ax.set_xlabel('Cell type')
+    ax.set_ylabel('Gene')
+    plt.xticks(rotation=45, ha='right')
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=150, bbox_inches='tight')
+    plt.close()
+
+
+def plot_volcano(de_df, cell_type: str, save_path: Path,
+                 lfc_thresh: float = 0.5, padj_thresh: float = 0.05,
+                 top_label_n: int = 10) -> None:
+    """Volcano plot for one cell type: logfoldchange vs -log10(pvals_adj).
+
+    Parameters
+    ----------
+    de_df : DataFrame
+        Full DE table filtered to one cell type, or the combined table
+        (filtering is applied inside).
+    cell_type : str
+    save_path : Path
+    lfc_thresh : float
+        Log-fold-change threshold for colouring significant genes.
+    padj_thresh : float
+        Adjusted p-value threshold.
+    top_label_n : int
+        Number of top genes (by score) to label.
+    """
+    import pandas as pd
+
+    sub = de_df[de_df['cell_type'] == cell_type].copy()
+    if sub.empty:
+        print(f'[plot_volcano] no data for {cell_type!r} -- skipping')
+        return
+
+    sub['neg_log10_padj'] = -np.log10(sub['pvals_adj'].clip(lower=1e-300))
+    sig = (sub['pvals_adj'] < padj_thresh) & (sub['logfoldchanges'].abs() > lfc_thresh)
+    colors = np.where(sig, np.where(sub['logfoldchanges'] > 0, '#d73027', '#4575b4'), '#aaaaaa')
+
+    fig, ax = plt.subplots(figsize=(7, 5))
+    ax.scatter(sub['logfoldchanges'], sub['neg_log10_padj'],
+               c=colors, s=12, alpha=0.7, linewidths=0)
+
+    ax.axvline(lfc_thresh, color='#888888', linestyle='--', linewidth=0.8)
+    ax.axvline(-lfc_thresh, color='#888888', linestyle='--', linewidth=0.8)
+    ax.axhline(-np.log10(padj_thresh), color='#888888', linestyle='--', linewidth=0.8)
+
+    top_genes = sub.nlargest(top_label_n, 'scores')
+    for _, row in top_genes.iterrows():
+        ax.text(row['logfoldchanges'], row['neg_log10_padj'] + 0.15,
+                row['names'], fontsize=7, ha='center', va='bottom')
+
+    ax.set_xlabel('log2 fold-change (stim / ctrl)')
+    ax.set_ylabel('-log10(adjusted p-value)')
+    ax.set_title(f'DE: stim vs ctrl -- {cell_type}')
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=150, bbox_inches='tight')
+    plt.close()
+
+
 def plot_random_control_comparison(real_score, random_means, save_path: Path) -> None:
     """Plot the real score distribution versus random control distributions."""
     plt.figure(figsize=(8, 5))
