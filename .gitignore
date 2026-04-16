@@ -45,13 +45,15 @@ data/*.h5ad
 !data/raw/.gitkeep
 !data/processed/.gitkeep
 
-# Results (generated outputs — regenerate by running scripts)
+# Results (generated outputs are usually ignored;
+# selectively add important files with: git add -f <file>)
 results/tables/*
 results/metrics/*
 !results/tables/.gitkeep
 !results/metrics/.gitkeep
 
-# Figures (generated outputs — regenerate by running scripts)
+# Figures (generated outputs are usually ignored;
+# selectively add important files with: git add -f <file>)
 # results/project_summary.md is committed as a human-authored summary
 figures/*.png
 !figures/.gitkeep
