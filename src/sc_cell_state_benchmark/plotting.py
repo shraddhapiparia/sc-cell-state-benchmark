@@ -746,6 +746,114 @@ def plot_volcano(de_df, cell_type: str, save_path: Path,
     plt.close()
 
 
+def plot_gsea_dotplot(
+    gsea_df,
+    save_path: Path,
+    top_n: int = 5,
+    max_padj: float = 0.05,
+    title: str = 'Top enriched pathways per cell type (stim upregulated genes)',
+) -> None:
+    """Dot plot of pathway enrichment results across cell types.
+
+    Rows = union of top_n pathways per cell type (by combined score).
+    Columns = cell types.
+    Dot colour = -log10(adjusted p-value).
+    Dot size = number of overlapping genes.
+    Missing dots = pathway was not significantly enriched in that cell type.
+
+    Parameters
+    ----------
+    gsea_df : DataFrame
+        Combined enrichment table with columns: cell_type, Term,
+        Adjusted P-value, Combined Score, n_overlap.
+    save_path : Path
+    top_n : int
+        Number of top pathways to select per cell type.
+    max_padj : float
+        Adjusted p-value threshold; rows beyond this are not plotted.
+    title : str
+    """
+    import pandas as pd
+
+    sig = gsea_df[gsea_df['Adjusted P-value'] < max_padj].copy()
+    if sig.empty:
+        print('[plot_gsea_dotplot] no significant results to plot')
+        return
+
+    sig['neg_log10_padj'] = -np.log10(sig['Adjusted P-value'].clip(lower=1e-300))
+
+    # Select top_n pathways per cell type by combined score
+    top_terms = []
+    for ct, grp in sig.groupby('cell_type'):
+        top_terms.extend(grp.nlargest(top_n, 'Combined Score')['Term'].tolist())
+    # Deduplicate while preserving encounter order
+    seen = set()
+    ordered_terms = [t for t in top_terms if not (t in seen or seen.add(t))]
+
+    cell_types = sorted(sig['cell_type'].unique())
+
+    # Build matrices for colour and size
+    color_mat = np.full((len(ordered_terms), len(cell_types)), np.nan)
+    size_mat = np.zeros((len(ordered_terms), len(cell_types)))
+
+    term_idx = {t: i for i, t in enumerate(ordered_terms)}
+    ct_idx = {c: i for i, c in enumerate(cell_types)}
+
+    for _, row in sig[sig['Term'].isin(ordered_terms)].iterrows():
+        ti = term_idx[row['Term']]
+        ci = ct_idx[row['cell_type']]
+        color_mat[ti, ci] = row['neg_log10_padj']
+        size_mat[ti, ci] = row['n_overlap']
+
+    # Strip "HALLMARK_" prefix for cleaner labels
+    clean_terms = [t.replace('HALLMARK_', '').replace('_', ' ').title()
+                   for t in ordered_terms]
+
+    fig_w = max(7, len(cell_types) * 1.2 + 3.0)
+    fig_h = max(4, len(ordered_terms) * 0.38 + 1.5)
+    fig, ax = plt.subplots(figsize=(fig_w, fig_h))
+
+    vmax = np.nanmax(color_mat) if not np.all(np.isnan(color_mat)) else 5.0
+    vmax = max(vmax, 2.0)
+
+    for ti in range(len(ordered_terms)):
+        for ci in range(len(cell_types)):
+            val = color_mat[ti, ci]
+            if np.isnan(val):
+                continue
+            size = max(20, size_mat[ti, ci] * 8)
+            color = plt.cm.YlOrRd(val / vmax)
+            ax.scatter(ci, ti, s=size, color=color, zorder=3, edgecolors='#888888',
+                       linewidths=0.4)
+
+    ax.set_xticks(range(len(cell_types)))
+    ax.set_xticklabels(cell_types, rotation=45, ha='right', fontsize=8)
+    ax.set_yticks(range(len(ordered_terms)))
+    ax.set_yticklabels(clean_terms, fontsize=8)
+    ax.set_xlim(-0.5, len(cell_types) - 0.5)
+    ax.set_ylim(-0.5, len(ordered_terms) - 0.5)
+    ax.invert_yaxis()
+    ax.grid(True, linestyle='--', linewidth=0.4, alpha=0.5)
+    ax.set_title(title, fontsize=10)
+
+    # Colour legend
+    sm = plt.cm.ScalarMappable(cmap='YlOrRd', norm=plt.Normalize(0, vmax))
+    sm.set_array([])
+    cbar = fig.colorbar(sm, ax=ax, shrink=0.5, pad=0.02)
+    cbar.set_label('-log10(adj. p-value)', fontsize=8)
+
+    # Size legend
+    for s_val, label in [(3, '3'), (10, '10'), (30, '30')]:
+        ax.scatter([], [], s=max(20, s_val * 8), color='#aaaaaa',
+                   edgecolors='#888888', linewidths=0.4, label=f'n={label}')
+    ax.legend(title='Overlap\ngenes', loc='lower right', fontsize=7,
+              title_fontsize=7, framealpha=0.8)
+
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=150, bbox_inches='tight')
+    plt.close()
+
+
 def plot_random_control_comparison(real_score, random_means, save_path: Path) -> None:
     """Plot the real score distribution versus random control distributions."""
     plt.figure(figsize=(8, 5))
