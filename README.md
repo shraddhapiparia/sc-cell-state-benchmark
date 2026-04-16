@@ -187,6 +187,18 @@ python scripts/11_cell_communication.py \
 
 ## Output files
 
+**After `02_preprocess_pbmc3k.py`:**
+
+| File | Description |
+|---|---|
+| `figures/pbmc3k_qc_violin_prefilter.png` | Pre-filter QC distributions (n_genes, total_counts, % MT); inspect to verify filter thresholds |
+
+**After `08_preprocess_kang_pbmc.py`:**
+
+| File | Description |
+|---|---|
+| `figures/kang_qc_violin_prefilter.png` | Pre-filter QC distributions (n_genes, total_counts); inspect to verify filter thresholds |
+
 **After `09_score_kang_interferon.py`:**
 
 | File | Description |
