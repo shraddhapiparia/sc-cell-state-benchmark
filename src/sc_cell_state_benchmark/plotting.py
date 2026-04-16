@@ -30,6 +30,57 @@ def plot_umap_qc(adata, save_path: Path) -> None:
     plt.close()
 
 
+def plot_qc_violin(adata, save_path: Path, thresholds: dict = None) -> None:
+    """Plot per-cell QC metric distributions before filtering.
+
+    Produces one violin per metric: n_genes_by_counts, total_counts, and
+    pct_counts_mt (only when MT genes were found and the column is non-zero).
+    Optional threshold lines are drawn as red dashed horizontal rules so the
+    figure documents the chosen filter values.
+
+    Parameters
+    ----------
+    adata : AnnData
+        Object with QC metrics already computed via sc.pp.calculate_qc_metrics.
+    save_path : Path
+        Destination file for the saved figure.
+    thresholds : dict, optional
+        Mapping of obs column name to threshold value, e.g.
+        {'n_genes_by_counts': 2500, 'pct_counts_mt': 5}.
+        Each key must match a column in adata.obs.
+    """
+    thresholds = thresholds or {}
+
+    # Decide which panels to show
+    metrics = ['n_genes_by_counts', 'total_counts']
+    labels = ['Genes per cell', 'Total counts per cell']
+    if 'pct_counts_mt' in adata.obs.columns and adata.obs['pct_counts_mt'].max() > 0:
+        metrics.append('pct_counts_mt')
+        labels.append('% mitochondrial counts')
+
+    n_panels = len(metrics)
+    fig, axes = plt.subplots(1, n_panels, figsize=(4 * n_panels, 5))
+    if n_panels == 1:
+        axes = [axes]
+
+    for ax, metric, label in zip(axes, metrics, labels):
+        data = adata.obs[metric].values
+        ax.violinplot(data, positions=[0], showmedians=True, showextrema=True)
+        ax.set_xticks([])
+        ax.set_ylabel(label)
+        ax.set_title(label)
+
+        if metric in thresholds:
+            ax.axhline(thresholds[metric], color='red', linestyle='--', linewidth=1.2,
+                       label=f'threshold = {thresholds[metric]}')
+            ax.legend(fontsize=8)
+
+    fig.suptitle('Pre-filter QC metrics (one dot = one cell)', y=1.01, fontsize=10)
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=150, bbox_inches='tight')
+    plt.close()
+
+
 def plot_umap_annotation(adata, save_path: Path) -> None:
     """Plot UMAP colored by predicted cell-type labels."""
     fig, ax = plt.subplots(figsize=(6, 5))
