@@ -746,14 +746,14 @@ def plot_volcano(de_df, cell_type: str, save_path: Path,
     plt.close()
 
 
-def plot_gsea_dotplot(
-    gsea_df,
+def plot_enrichment_dotplot(
+    ora_df,
     save_path: Path,
     top_n: int = 5,
     max_padj: float = 0.05,
-    title: str = 'Top enriched pathways per cell type (stim upregulated genes)',
+    title: str = 'Top enriched pathways per cell type',
 ) -> None:
-    """Dot plot of pathway enrichment results across cell types.
+    """Dot plot of ORA results across cell types.
 
     Rows = union of top_n pathways per cell type (by combined score).
     Columns = cell types.
@@ -763,8 +763,8 @@ def plot_gsea_dotplot(
 
     Parameters
     ----------
-    gsea_df : DataFrame
-        Combined enrichment table with columns: cell_type, Term,
+    ora_df : DataFrame
+        Combined ORA table with columns: cell_type, Term,
         Adjusted P-value, Combined Score, n_overlap.
     save_path : Path
     top_n : int
@@ -775,9 +775,9 @@ def plot_gsea_dotplot(
     """
     import pandas as pd
 
-    sig = gsea_df[gsea_df['Adjusted P-value'] < max_padj].copy()
+    sig = ora_df[ora_df['Adjusted P-value'] < max_padj].copy()
     if sig.empty:
-        print('[plot_gsea_dotplot] no significant results to plot')
+        print('[plot_enrichment_dotplot] no significant results to plot')
         return
 
     sig['neg_log10_padj'] = -np.log10(sig['Adjusted P-value'].clip(lower=1e-300))
@@ -847,6 +847,114 @@ def plot_gsea_dotplot(
         ax.scatter([], [], s=max(20, s_val * 8), color='#aaaaaa',
                    edgecolors='#888888', linewidths=0.4, label=f'n={label}')
     ax.legend(title='Overlap\ngenes', loc='lower right', fontsize=7,
+              title_fontsize=7, framealpha=0.8)
+
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=150, bbox_inches='tight')
+    plt.close()
+
+
+plot_gsea_dotplot = plot_enrichment_dotplot  # backward-compat alias
+
+
+def plot_gsea_prerank_dotplot(
+    gsea_df,
+    save_path: Path,
+    fdr_col: str = 'FDR q-val',
+    top_n: int = 5,
+    fdr_threshold: float = 0.25,
+    title: str = 'Preranked GSEA: top Hallmark pathways per cell type',
+) -> None:
+    """Dot plot for preranked GSEA results across cell types.
+
+    Rows = union of top_n pathways per cell type (by NES).
+    Columns = cell types.
+    Dot colour = NES (diverging: blue = negative NES, red = positive NES).
+    Dot size = -log10(FDR q-value).
+    Missing dots = pathway not significant in that cell type.
+
+    Parameters
+    ----------
+    gsea_df : DataFrame
+        Combined preranked GSEA table with columns: cell_type, Term, NES, fdr_col.
+    save_path : Path
+    fdr_col : str
+        Column name for FDR q-value (gseapy uses 'FDR q-val').
+    top_n : int
+        Number of top pathways per cell type (by NES).
+    fdr_threshold : float
+        Only plot rows with FDR below this value.
+    title : str
+    """
+    import pandas as pd
+
+    sig = gsea_df[gsea_df[fdr_col] < fdr_threshold].copy()
+    if sig.empty:
+        print('[plot_gsea_prerank_dotplot] no significant results to plot')
+        return
+
+    sig['neg_log10_fdr'] = -np.log10(sig[fdr_col].clip(lower=1e-300))
+
+    top_terms: list = []
+    for ct, grp in sig.groupby('cell_type'):
+        top_terms.extend(grp.nlargest(top_n, 'NES')['Term'].tolist())
+    seen: set = set()
+    ordered_terms = [t for t in top_terms if not (t in seen or seen.add(t))]
+
+    cell_types = sorted(sig['cell_type'].unique())
+
+    nes_mat = np.full((len(ordered_terms), len(cell_types)), np.nan)
+    size_mat = np.zeros((len(ordered_terms), len(cell_types)))
+
+    term_idx = {t: i for i, t in enumerate(ordered_terms)}
+    ct_idx = {c: i for i, c in enumerate(cell_types)}
+
+    for _, row in sig[sig['Term'].isin(ordered_terms)].iterrows():
+        ti = term_idx[row['Term']]
+        ci = ct_idx[row['cell_type']]
+        nes_mat[ti, ci] = row['NES']
+        size_mat[ti, ci] = row['neg_log10_fdr']
+
+    clean_terms = [t.replace('HALLMARK_', '').replace('_', ' ').title()
+                   for t in ordered_terms]
+
+    fig_w = max(7, len(cell_types) * 1.2 + 3.5)
+    fig_h = max(4, len(ordered_terms) * 0.38 + 1.5)
+    fig, ax = plt.subplots(figsize=(fig_w, fig_h))
+
+    vabs = float(np.nanmax(np.abs(nes_mat))) if not np.all(np.isnan(nes_mat)) else 2.0
+    vabs = max(vabs, 1.0)
+
+    for ti in range(len(ordered_terms)):
+        for ci in range(len(cell_types)):
+            nes = nes_mat[ti, ci]
+            sz = size_mat[ti, ci]
+            if np.isnan(nes) or sz == 0:
+                continue
+            color = plt.cm.RdBu_r((nes + vabs) / (2 * vabs))
+            dot_size = max(20, sz * 40)
+            ax.scatter(ci, ti, s=dot_size, color=color, zorder=3,
+                       edgecolors='#888888', linewidths=0.4)
+
+    ax.set_xticks(range(len(cell_types)))
+    ax.set_xticklabels(cell_types, rotation=45, ha='right', fontsize=8)
+    ax.set_yticks(range(len(ordered_terms)))
+    ax.set_yticklabels(clean_terms, fontsize=8)
+    ax.set_xlim(-0.5, len(cell_types) - 0.5)
+    ax.set_ylim(-0.5, len(ordered_terms) - 0.5)
+    ax.invert_yaxis()
+    ax.grid(True, linestyle='--', linewidth=0.4, alpha=0.5)
+    ax.set_title(title, fontsize=10)
+
+    sm = plt.cm.ScalarMappable(cmap='RdBu_r', norm=plt.Normalize(vmin=-vabs, vmax=vabs))
+    sm.set_array([])
+    cbar = fig.colorbar(sm, ax=ax, shrink=0.5, pad=0.02)
+    cbar.set_label('NES', fontsize=8)
+
+    for s_val, label in [(1, '1'), (2, '2'), (4, '4')]:
+        ax.scatter([], [], s=max(20, s_val * 40), color='#aaaaaa',
+                   edgecolors='#888888', linewidths=0.4, label=f'-log10(FDR)={label}')
+    ax.legend(title='Dot size', loc='lower right', fontsize=7,
               title_fontsize=7, framealpha=0.8)
 
     plt.tight_layout()
