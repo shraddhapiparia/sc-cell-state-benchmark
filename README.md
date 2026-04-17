@@ -62,10 +62,10 @@ This repository focuses on RNA-only benchmarking and interpretation. Paired RNA+
 
 ## Datasets
 
-| Dataset                     | Role                          | Cells  |
-| --------------------------- | ----------------------------- | ------ |
-| PBMC3k (10x Genomics)       | Warm-up / pipeline validation | ~2,700 |
-| Kang PBMC IFN-β stimulation | Main benchmark dataset        | 24,562 |
+| Dataset                     | Role                          | Cells  | Source |
+| --------------------------- | ----------------------------- | ------ | ------ |
+| PBMC3k (10x Genomics)       | Warm-up / pipeline validation | ~2,700 | `scanpy.datasets.pbmc3k()` |
+| Kang PBMC IFN-β stimulation | Main benchmark dataset        | 24,562 | Expected locally at `data/raw/kang_pbmc_raw.h5ad` (original source: GEO GSE96583) |
 
 ---
 
@@ -81,9 +81,24 @@ This repository focuses on RNA-only benchmarking and interpretation. Paired RNA+
 ## Quick start
 
 ```bash
+conda env create -f environment.yml
+conda activate sc-benchmark
+bash run_pipeline.sh
+```
+
+The pipeline expects the Kang PBMC dataset at `data/raw/kang_pbmc_raw.h5ad`
+(GEO accession GSE96583). To use a file at a different path:
+
+```bash
+KANG_INPUT=/path/to/kang_pbmc_raw.h5ad bash run_pipeline.sh
+```
+
+Or run steps individually:
+
+```bash
 # Create environment
 conda env create -f environment.yml
-conda activate sc-cell-state-benchmark
+conda activate sc-benchmark
 
 # Run pipeline
 python scripts/01_download_pbmc3k.py
