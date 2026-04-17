@@ -189,6 +189,29 @@ When debugging, first verify:
 4. metadata columns
 5. rownames consistency between matrices and Seurat object
 
+## Pathway analysis best practices
+
+When adding or modifying pathway-enrichment code:
+
+1. Distinguish ORA from GSEA clearly in script names, docstrings, outputs, and plots.
+2. For GSEA/prerank:
+   - use the full tested gene list
+   - rank genes by a signed statistic when available
+   - do not prefilter to significant genes before GSEA
+3. For ORA:
+   - analyze upregulated and downregulated genes separately
+   - use an explicit experiment-specific background/universe of tested or expressed genes
+4. Prefer low-redundancy libraries for compact summaries, but document that this is not equivalent to formal redundancy collapse.
+5. Before implementing pathway analysis changes, check current best-practice documentation from authoritative sources and record the links and key decisions in `docs/ANALYSIS_DECISIONS.md`.
+6. In `docs/ANALYSIS_DECISIONS.md`, include:
+   - method used (ORA vs GSEA)
+   - ranking metric
+   - thresholds used
+   - background definition
+   - pathway library used
+   - whether redundancy reduction was applied
+   - links to supporting references
+   
 ## Claude Operating Principles
 
 * Do not fake expertise. If a task requires domain-specific validation that cannot be performed from the repository alone, say so clearly and offer to write code, suggest checks, or point to the right tools.

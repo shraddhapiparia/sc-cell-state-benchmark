@@ -30,9 +30,9 @@ This repository focuses on RNA-only benchmarking and interpretation. Paired RNA+
 
 ### 3. Pathway-level interpretation
 
-![Pathway enrichment across cell types](figures/kang_gsea_top_pathways.png)
+![ORA: upregulated Hallmark pathways per cell type](figures/kang_ora_up_top_pathways.png)
 
-*Hallmark pathway enrichment from within-cell-type DE results. Interferon-α and interferon-γ responses dominate every cell type, while monocytes and dendritic cells additionally show TNF/NF-κB and inflammatory signaling.*
+*ORA (over-representation analysis) on upregulated DEGs per cell type using MSigDB Hallmark gene sets. Interferon-α and interferon-γ responses dominate every cell type, while monocytes and dendritic cells additionally show TNF/NF-κB and inflammatory signaling.*
 
 ---
 
@@ -99,7 +99,7 @@ python scripts/09_score_kang_interferon.py --condition label --cell-type cell_ty
 python scripts/10_score_pathway_programs.py --condition label --cell-type cell_type
 python scripts/11_cell_communication.py --condition label --cell-type cell_type
 python scripts/12_de_per_cell_type.py --condition label --cell-type cell_type
-python scripts/13_gsea_per_cell_type.py
+python scripts/13_pathway_enrichment_per_cell_type.py
 ```
 
 For the Kang dataset, the condition column is `label` (`ctrl`, `stim`) and the cell-type column is `cell_type`.
@@ -114,7 +114,7 @@ For the Kang dataset, the condition column is `label` (`ctrl`, `stim`) and the c
 | Script 10 | `kang_program_heatmap_delta.png`, `kang_program_auc.csv`                   |
 | Script 11 | `kang_communication_heatmap_delta.png`, `kang_communication_top_stim.csv`  |
 | Script 12 | `kang_de_top5_per_cell_type.png`, `kang_de_stim_vs_ctrl_per_cell_type.csv` |
-| Script 13 | `kang_gsea_top_pathways.png`, `kang_gsea_results.csv`                      |
+| Script 13 | `kang_ora_up_top_pathways.png`, `kang_ora_down_top_pathways.png`, `kang_gsea_preranked_top_pathways.png`, `kang_ora_up_results.csv`, `kang_ora_down_results.csv`, `kang_gsea_preranked_results.csv` |
 
 ---
 
