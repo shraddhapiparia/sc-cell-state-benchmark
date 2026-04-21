@@ -6,6 +6,14 @@ This repository focuses on RNA-only benchmarking and interpretation. Paired RNA+
 
 ---
 
+## Why this repo matters
+
+* Benchmarks three gene-set scoring methods (scanpy score_genes, AUCell-style ranking, and custom) on a real IFN-β perturbation dataset with known ground truth, making method comparison biologically grounded.
+* Connects method output directly to biological interpretation: within-cell-type DE, Hallmark pathway enrichment, and cell-cell communication -- not just cluster labels.
+* Built for reproducibility: numbered scripts, fixed seeds, modular `src/` package, and a single `bash run_pipeline.sh` entrypoint.
+
+---
+
 ## Highlights
 
 ### 1. Cell-type annotation and perturbation structure
@@ -56,7 +64,7 @@ This repository focuses on RNA-only benchmarking and interpretation. Paired RNA+
 | Program scoring         | 10      | Curated immune program scores across cell types and conditions        |
 | Cell-cell communication | 11      | Exploratory ligand-receptor co-expression analysis                    |
 | Differential expression | 12      | Stim vs ctrl differential expression within each cell type            |
-| Pathway enrichment      | 13      | Hallmark pathway enrichment from DE genes                             |
+Pathway enrichment | 13  | ORA (up/down) + preranked GSEA from DE genes |
 
 ---
 
@@ -80,11 +88,23 @@ This repository focuses on RNA-only benchmarking and interpretation. Paired RNA+
 
 ## Quick start
 
+### Environment setup
+
 ```bash
+# 1. Recreate the conda environment (Python + compiled dependencies)
 conda env create -f environment.yml
 conda activate sc-benchmark
+
+# 2. Install the src/ package in editable mode so scripts can import sc_cell_state_benchmark modules
+pip install -e .
+
+# 3. Run the full pipeline
 bash run_pipeline.sh
 ```
+
+`environment.yml` pins the full conda environment for reproducibility.
+`pyproject.toml` installs the `src/sc_cell_state_benchmark/` package so scripts can do
+`from sc_cell_state_benchmark import scoring` without path hacks. Both files are intentional.
 
 The pipeline expects the Kang PBMC dataset at `data/raw/kang_pbmc_raw.h5ad`
 (GEO accession GSE96583). To use a file at a different path:
@@ -96,11 +116,10 @@ KANG_INPUT=/path/to/kang_pbmc_raw.h5ad bash run_pipeline.sh
 Or run steps individually:
 
 ```bash
-# Create environment
 conda env create -f environment.yml
 conda activate sc-benchmark
+pip install -e .
 
-# Run pipeline
 python scripts/01_download_pbmc3k.py
 python scripts/02_preprocess_pbmc3k.py
 python scripts/03_plot_pbmc3k.py
@@ -115,6 +134,7 @@ python scripts/10_score_pathway_programs.py --condition label --cell-type cell_t
 python scripts/11_cell_communication.py --condition label --cell-type cell_type
 python scripts/12_de_per_cell_type.py --condition label --cell-type cell_type
 python scripts/13_pathway_enrichment_per_cell_type.py
+# canonical pathway script; 13_gsea_per_cell_type.py is deprecated
 ```
 
 For the Kang dataset, the condition column is `label` (`ctrl`, `stim`) and the cell-type column is `cell_type`.
@@ -138,13 +158,16 @@ For the Kang dataset, the condition column is `label` (`ctrl`, `stim`) and the c
 ```text
 sc-cell-state-benchmark/
 ├── data/
+├── docs/
 ├── figures/
+├── notebooks/
 ├── results/
 ├── scripts/
-├── src/sc_cell_state_benchmark/
+├── src/sc_cell_state_benchmark/   # importable package; installed via pip install -e .
 ├── tests/
-├── environment.yml
-├── requirements.txt
+├── environment.yml                # full conda environment pin for reproduction
+├── pyproject.toml                 # package metadata and direct dependencies
+├── run_pipeline.sh
 └── README.md
 ```
 

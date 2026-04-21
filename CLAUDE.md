@@ -4,143 +4,53 @@ This file provides guidance to Claude Code when working in this repository.
 
 ## Project Overview
 
-This repository demonstrates progressively more advanced single-cell analysis workflows:
+This repository benchmarks RNA-based cell-state scoring methods on an IFN-β stimulated PBMC dataset (Kang et al., GSE96583). It is RNA-only. Paired RNA+ATAC multiome analysis is developed in a separate follow-up repository.
 
-1. RNA-only PBMC cell-state benchmarking
-2. Paired RNA+ATAC multiome integration with WNN
-3. TF / regulon activity inference
-4. Cross-modal RNA vs ATAC validation
-5. Optional pseudotime and dynamic regulatory analysis
+The project is organized as numbered scripts (01-13). Each script should:
 
-The project is organized as a sequence of numbered scripts. Each script should:
-
-* read outputs from earlier phases
-* write clearly named files
+* read outputs from earlier scripts
+* write clearly named files to `results/` or `figures/`
 * avoid modifying previous outputs in-place
 * save both tables and figures when possible
 
-## Main Analysis Phases
+## Environment and Package Setup
 
-### Phase 1: RNA-only Benchmarking
+Canonical reproduction path:
 
-Goal:
-Establish baseline single-cell analysis and cell-state scoring using PBMC RNA datasets.
-
-Typical workflow:
-
-```text
-01_import_rna_baseline.py
-→ QC, normalization, HVGs, PCA, UMAP, Leiden
-→ cluster annotation
-→ cell-state scoring
+```bash
+conda env create -f environment.yml   # recreate pinned conda environment
+conda activate sc-benchmark
+pip install -e .                      # install src/ package in editable mode
+bash run_pipeline.sh
 ```
 
-Important outputs:
+`environment.yml` -- full pinned conda environment for exact reproduction. Generated with `conda env export`. To regenerate portably (no build hashes, no prefix): `conda env export --no-builds | grep -v "^prefix:" > environment.yml`.
 
-* `results/figures/annotated_umap.png`
-* `results/cell_states/*.csv`
-* `results/project_summary.md`
+`pyproject.toml` -- declares the `sc_cell_state_benchmark` package and its direct dependencies. Needed so scripts can `from sc_cell_state_benchmark import scoring` without `sys.path` hacks. Both files are intentional.
 
-### Phase 2: RNA + ATAC Integration
+## Pipeline Scripts
 
-Goal:
-Integrate paired multiome data using Seurat WNN.
+| Scripts | Layer | Purpose |
+|---------|-------|---------|
+| 01-06 | PBMC3k warm-up | QC, clustering, annotation, cell-state scoring |
+| 07-09 | Kang benchmark | IFN-β scoring, method comparison |
+| 10 | Program scoring | Curated immune programs across conditions |
+| 11 | Cell communication | Exploratory ligand-receptor co-expression |
+| 12 | Differential expression | Stim vs ctrl DE per cell type |
+| 13 | Pathway enrichment | ORA and preranked GSEA on DE genes |
 
-Workflow:
+Key outputs:
 
-```text
-02_download_or_prepare_multiome.R
-03_preprocess_multiome.R
-04_integrate_rna_atac_wnn.R
-05_compare_rna_vs_wnn.py
-```
+* `figures/kang_umap_by_condition.png`
+* `results/kang_method_comparison.csv`
+* `results/kang_gsea_preranked_results.csv`
 
-Expected outputs:
+## Do Not Commit
 
-* `data/processed/multiome_wnn_object.rds`
-* `results/comparison/rna_vs_wnn_broad_summary.md`
-* WNN UMAP figures and broad-label comparisons
-
-Important conventions:
-
-* RNA assay should remain default unless temporarily switching to ATAC
-* Broad cell-type labels should be saved in metadata
-* Keep mappings between original WNN labels and broad labels in TSV files
-
-## Phase 3: TF / Regulon Activity
-
-Scripts:
-
-```text
-06_tf_activity.py
-07_plot_tf_activity.py
-```
-
-Goal:
-Estimate TF activity from RNA programs for a small set of biologically interpretable axes:
-
-* interferon_alpha_beta_response
-* inflammatory_response
-* antigen_presentation_mhc
-* cytotoxic_nk_like
-* monocyte_activation
-
-Outputs:
-
-* `results/regulons/tf_activity_rna_by_celltype.csv`
-* `results/figures/tf_activity/*.png`
-
-Guidelines:
-
-* Prefer small interpretable TF sets rather than large black-box regulons
-* Save both per-cell and per-cell-type summaries if possible
-* Always print top TFs and strongest cell-type enrichments
-
-## Phase 4: RNA vs ATAC Cross-Validation
-
-Scripts:
-
-```text
-08_motif_enrichment_atac.R
-09_compare_rna_atac_tf.py
-```
-
-Goal:
-Validate RNA-derived TF activity using ATAC motif accessibility.
-
-Expected outputs:
-
-* `results/regulons/atac_motif_deviations.csv`
-* `results/comparison/tf_rna_atac_correlation.csv`
-* scatter plots and correlation summary tables
-
-Interpretation:
-
-* Strong positive correlation supports the TF signal biologically
-* Correlations around 0.8–0.9 are strong
-* Interferon signatures may be weaker due to limited matching motifs
-
-## Optional Phase 5: Pseudotime
-
-Goal:
-Study dynamic transitions, especially in monocyte lineage cells.
-
-Expected workflow:
-
-```text
-subset monocyte-related cells
-→ run Slingshot or Monocle
-→ project RNA programs and ATAC motif activity along pseudotime
-```
-
-Expected outputs:
-
-* `results/dynamics/pseudotime_monocyte_cells.csv`
-* `results/figures/dynamics/pseudotime_umap_monocyte.png`
-* RNA and ATAC trend plots along pseudotime
-
-Important rule:
-Slingshot requires at least two cluster labels within the subset. If only one label is present, stop and print a useful error.
+* `data/raw/` -- large input files (Kang h5ad is ~several hundred MB)
+* `data/processed/` -- generated intermediate AnnData objects
+* `results/` and `figures/` -- generated outputs (checked in selectively for portfolio)
+* `.env` or any credentials
 
 ## Coding Style
 
