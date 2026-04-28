@@ -27,14 +27,17 @@ This repository focuses on RNA-only benchmarking and interpretation. Paired RNA+
 *UMAP of the Kang PBMC dataset showing a strong separation between ctrl and IFN-β-stimulated cells while preserving expected immune cell types.*
 
 ### 2. Within-cell-type differential expression
+
 <img src="figures/kang_de_top5_per_cell_type.png" width="500">
 
 *Top stimulated vs control genes within each cell type. Classical interferon-stimulated genes including IFIT1, IFIT3, ISG15, MX1, and IFI6 are consistently induced across immune populations, with the strongest response in monocytes and dendritic cells.*
+
 <img src="figures/kang_de_volcano_cd14_monocytes.png" width="500">
 
 *Volcano plot for CD14+ monocytes. IFN-β stimulation produces a broad transcriptional response dominated by interferon and inflammatory genes.*
 
 ### 3. Pathway-level interpretation
+
 <img src="figures/kang_ora_up_top_pathways.png" width="500">
 
 *ORA (over-representation analysis) on upregulated DEGs per cell type using MSigDB Hallmark gene sets. Interferon-α and interferon-γ responses dominate every cell type, while monocytes and dendritic cells additionally show TNF/NF-κB and inflammatory signaling.*
