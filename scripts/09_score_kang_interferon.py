@@ -23,6 +23,8 @@ from sc_cell_state_benchmark.scoring import (
     matched_random_gene_sets,
     rank_based_score,
     scanpy_score_genes,
+    aucell_score,
+    ucell_score
 )
 
 INTERFERON_GENES = [
@@ -145,33 +147,36 @@ if __name__ == '__main__':
 
     scanpy_score_genes(adata, available_genes, score_name='ifn_scanpy')
     adata.obs['ifn_meanexpr'] = average_expression_score(adata, available_genes)
-    adata.obs['ifn_rank'] = rank_based_score(adata, available_genes)
+    adata.obs['ifn_aucell'] = aucell_score(adata, available_genes)
+    adata.obs['ifn_ucell'] = ucell_score(adata, available_genes)
+    score_methods = ['ifn_scanpy', 'ifn_meanexpr', 'ifn_aucell', 'ifn_ucell']
     print('[score] computed interferon scores')
 
     control_sets = matched_random_gene_sets(adata, available_genes, n_sets=RANDOM_CONTROL_SETS, seed=RANDOM_SEED)
     print(f'[score] generated {len(control_sets)} random control gene sets')
 
-    random_control_means = {'scanpy': [], 'meanexpr': [], 'rank': []}
+    random_control_means = {'scanpy': [], 'meanexpr': [], 'rank': [], 'aucell': [], 'ucell': []}
     for control_genes in control_sets:
         adata_ctrl = adata.copy()
         scanpy_score_genes(adata_ctrl, control_genes, score_name='ifn_scanpy_ctrl')
         random_control_means['scanpy'].append(adata_ctrl.obs['ifn_scanpy_ctrl'].to_numpy().mean())
         random_control_means['meanexpr'].append(average_expression_score(adata, control_genes).mean())
-        random_control_means['rank'].append(rank_based_score(adata, control_genes).mean())
+        random_control_means['aucell'].append(aucell_score(adata, control_genes).mean())
+        random_control_means['ucell'].append(ucell_score(adata, control_genes).mean())
 
-    score_table = adata.obs[[condition_col, 'ifn_scanpy', 'ifn_meanexpr', 'ifn_rank']].copy()
+    score_table = adata.obs[[condition_col] + score_methods].copy()
     score_table.insert(0, 'cell_id', adata.obs_names)
     score_table.rename(columns={condition_col: 'condition'}, inplace=True)
     score_path = RESULTS_TABLES / 'kang_interferon_scores.csv'
     score_table.to_csv(score_path, index=False)
 
-    summary_cond = adata.obs.groupby(condition_col, observed=True)[['ifn_scanpy', 'ifn_meanexpr', 'ifn_rank']].agg(['mean', 'median', 'std'])
+    summary_cond = adata.obs.groupby(condition_col, observed=True)[score_methods].agg(['mean', 'median', 'std'])
     summary_cond_df = flatten_summary(summary_cond)
     summary_cond_path = RESULTS_TABLES / 'kang_interferon_summary_by_condition.csv'
     summary_cond_df.to_csv(summary_cond_path, index=False)
 
     if cell_type_col is not None:
-        summary_cell_type = adata.obs.groupby(cell_type_col, observed=True)[['ifn_scanpy', 'ifn_meanexpr', 'ifn_rank']].agg(['mean', 'median', 'std'])
+        summary_cell_type = adata.obs.groupby(cell_type_col, observed=True)[score_methods].agg(['mean', 'median', 'std'])
         summary_cell_type_df = flatten_summary(summary_cell_type)
         summary_cell_type_path = RESULTS_TABLES / 'kang_interferon_summary_by_cell_type.csv'
         summary_cell_type_df.to_csv(summary_cell_type_path, index=False)
@@ -216,7 +221,7 @@ if __name__ == '__main__':
         summary_cell_type_path = None
 
     method_comparisons = []
-    for method in ['ifn_scanpy', 'ifn_meanexpr', 'ifn_rank']:
+    for method in score_methods:
         metrics = compute_binary_comparison(adata.obs[method], condition_values, positive_label)
         metrics.update({'method': method, 'condition_column': condition_col})
         method_comparisons.append(metrics)
@@ -226,9 +231,11 @@ if __name__ == '__main__':
 
     plot_umap_score(adata, 'ifn_scanpy', FIGURES / 'kang_interferon_umap_scanpy.png', 'Interferon score (Scanpy)')
     plot_umap_score(adata, 'ifn_meanexpr', FIGURES / 'kang_interferon_umap_meanexpr.png', 'Interferon score (mean expression)')
+    plot_umap_score(adata, 'ifn_aucell', FIGURES / 'kang_interferon_umap_aucell.png', 'Interferon score (AUCell-style)')
+    plot_umap_score(adata, 'ifn_ucell', FIGURES / 'kang_interferon_umap_ucell.png', 'Interferon score (UCell-style)')
     plot_score_violin(
         score_table,
-        ['ifn_scanpy', 'ifn_meanexpr', 'ifn_rank'],
+        score_methods,
         'condition',
         FIGURES / 'kang_interferon_violin_by_condition.png',
     )

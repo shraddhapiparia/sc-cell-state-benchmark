@@ -158,6 +158,33 @@ def run_ora(
 
     return res
 
+def fetch_enrichr_library_direct(library_name: str) -> dict:
+    """Fetch an Enrichr gene-set library directly and return dict: term -> genes."""
+    import requests
+
+    url = "https://maayanlab.cloud/Enrichr/geneSetLibrary"
+    params = {
+        "mode": "text",
+        "libraryName": library_name,
+    }
+
+    response = requests.get(url, params=params, timeout=60)
+    response.raise_for_status()
+
+    gene_sets = {}
+    for line in response.text.strip().splitlines():
+        parts = line.rstrip("\n").split("\t")
+        if len(parts) < 3:
+            continue
+
+        term = parts[0]
+        genes = [g for g in parts[2:] if g]
+        gene_sets[term] = genes
+
+    if not gene_sets:
+        raise RuntimeError(f"No gene sets parsed from {library_name}")
+
+    return gene_sets
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Preranked GSEA
@@ -242,10 +269,24 @@ if __name__ == '__main__':
           f'{de["cell_type"].nunique()} cell types')
 
     print(f'[enrichment] fetching gene set library: {GENE_SET_LIBRARY} ...')
+
     try:
         gene_sets = gp.get_library(name=GENE_SET_LIBRARY, organism='Human')
+        print(f'[enrichment] loaded gene sets with gseapy.get_library')
     except Exception as exc:
-        sys.exit(f'[enrichment] failed to fetch gene set library: {exc}')
+        print(f'[enrichment] gseapy.get_library failed: {exc}')
+        print('[enrichment] trying direct Enrichr text-download fallback ...')
+
+        try:
+            gene_sets = fetch_enrichr_library_direct(GENE_SET_LIBRARY)
+            print('[enrichment] loaded gene sets with direct Enrichr fallback')
+        except Exception as exc2:
+            sys.exit(
+                '[enrichment] failed to fetch gene set library using both methods.\n'
+                f'gseapy.get_library error: {exc}\n'
+                f'direct fallback error: {exc2}'
+            )
+
     print(f'[enrichment] {len(gene_sets)} gene sets loaded')
 
     ora_up_rows:   list = []

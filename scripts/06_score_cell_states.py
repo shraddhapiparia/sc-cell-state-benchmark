@@ -14,6 +14,8 @@ from sc_cell_state_benchmark.scoring import (
     average_expression_score,
     matched_random_gene_sets,
     rank_based_score,
+    aucell_score,
+    ucell_score,
     scanpy_score_genes,
 )
 
@@ -58,30 +60,32 @@ if __name__ == '__main__':
     # Compute real scores
     scanpy_score_genes(adata, available_genes, score_name='ifn_scanpy')
     adata.obs['ifn_meanexpr'] = average_expression_score(adata, available_genes)
-    adata.obs['ifn_rank'] = rank_based_score(adata, available_genes)
-    print('[score] computed scanpy score')
+    adata.obs['ifn_aucell'] = aucell_score(adata, available_genes)
+    adata.obs['ifn_ucell'] = ucell_score(adata, available_genes)
+    print('[score] computed interferon scores')
 
     # Generate matched random control sets
     control_sets = matched_random_gene_sets(adata, available_genes, n_sets=RANDOM_CONTROL_SETS, seed=RANDOM_SEED)
     print(f'[score] generated {len(control_sets)} random control gene sets')
 
     # Compute random control distributions for each method
-    random_control_means = {'scanpy': [], 'meanexpr': [], 'rank': []}
+    random_control_means = {'scanpy': [], 'meanexpr': [], 'aucell': [], 'ucell': []}
     for control_genes in control_sets:
         adata_ctrl = adata.copy()
         scanpy_score_genes(adata_ctrl, control_genes, score_name='ifn_scanpy_ctrl')
         random_control_means['scanpy'].append(adata_ctrl.obs['ifn_scanpy_ctrl'].to_numpy().mean())
         random_control_means['meanexpr'].append(average_expression_score(adata, control_genes).mean())
-        random_control_means['rank'].append(rank_based_score(adata, control_genes).mean())
+        random_control_means['aucell'].append(aucell_score(adata, control_genes).mean())
+        random_control_means['ucell'].append(ucell_score(adata, control_genes).mean())
 
     # Save score tables
-    score_table = adata.obs[['leiden', 'predicted_cell_type', 'ifn_scanpy', 'ifn_meanexpr', 'ifn_rank']].copy()
+    score_table = adata.obs[['leiden', 'predicted_cell_type', 'ifn_scanpy', 'ifn_meanexpr', 'ifn_aucell', 'ifn_ucell']].copy()
     score_table.insert(0, 'cell_id', adata.obs_names)
     score_path = RESULTS_TABLES / 'interferon_scores.csv'
     score_table.to_csv(score_path, index=False)
 
     grouping = 'predicted_cell_type' if 'predicted_cell_type' in adata.obs.columns else 'leiden'
-    summary = adata.obs.groupby(grouping, observed=True)[['ifn_scanpy', 'ifn_meanexpr', 'ifn_rank']].agg(['mean', 'median', 'std'])
+    summary = adata.obs.groupby(grouping, observed=True)[['ifn_scanpy', 'ifn_meanexpr', 'ifn_aucell', 'ifn_ucell']].agg(['mean', 'median', 'std'])
     summary_df = flatten_summary(summary)
     summary_path = RESULTS_TABLES / 'interferon_summary_by_cell_type.csv'
     summary_df.to_csv(summary_path, index=False)
@@ -89,9 +93,11 @@ if __name__ == '__main__':
     # Create figures
     plot_umap_score(adata, 'ifn_scanpy', FIGURES / 'interferon_umap_scanpy.png', 'Interferon score (Scanpy)')
     plot_umap_score(adata, 'ifn_meanexpr', FIGURES / 'interferon_umap_meanexpr.png', 'Interferon score (mean expression)')
+    plot_umap_score(adata, 'ifn_ucell', FIGURES / 'interferon_umap_ucell.png','Interferon score (UCell-style)')
+    plot_umap_score(adata, 'ifn_aucell', FIGURES / 'interferon_umap_aucell.png','Interferon score (AUCell-style)')
     plot_score_violin(
         score_table,
-        ['ifn_scanpy', 'ifn_meanexpr', 'ifn_rank'],
+        ['ifn_scanpy', 'ifn_meanexpr', 'ifn_aucell', 'ifn_ucell'],
         grouping,
         FIGURES / 'interferon_violin_by_cell_type.png',
     )
